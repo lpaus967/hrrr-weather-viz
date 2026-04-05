@@ -13,8 +13,6 @@ import {
 } from "@/hooks/useWeatherMetadata";
 import { usePreloadedRasterLayers } from "@/hooks/usePreloadedRasterLayers";
 
-const FALLBACK_MAPBOX_TOKEN =
-  "pk.eyJ1IjoibG1hbjk2NyIsImEiOiJjbWlta3E4c3YxeWRuM2dwdm5iMHY1aWJuIn0.hr3fofye3scvgOHlvewLyw";
 const MAP_STYLE = "mapbox://styles/mapbox/satellite-v9";
 const INITIAL_VIEW_STATE = {
   latitude: 41.163,
@@ -23,7 +21,7 @@ const INITIAL_VIEW_STATE = {
   projection: "mercator" as const,
 };
 
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim() || FALLBACK_MAPBOX_TOKEN;
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim() || "";
 
 const WEATHER_VARIABLE_ORDER = [
   "temperature_2m",
