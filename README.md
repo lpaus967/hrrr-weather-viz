@@ -41,7 +41,6 @@ npm run dev
 | Variable | Description |
 |----------|-------------|
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Public Mapbox access token. Overrides the built-in fallback token. |
-| `MAPBOX_SECRET_TOKEN` | Secret token for tileset metadata (optional) |
 
 ## Data Sources
 
