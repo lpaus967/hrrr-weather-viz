@@ -82,6 +82,7 @@ export function usePreloadedRasterLayers(
   const opacityRef = useRef(baseOpacity);
   const loadedSourcesRef = useRef<Set<string>>(new Set());
   const activeForecastRef = useRef<string | null>(null);
+  const cleanupListenersRef = useRef<(() => void)[]>([]);
 
   const getMap = useCallback(() => mapRef.current?.getMap(), [mapRef]);
 
@@ -91,6 +92,9 @@ export function usePreloadedRasterLayers(
   const cleanup = useCallback(() => {
     const map = getMap();
     if (!map) return;
+
+    cleanupListenersRef.current.forEach((cleanupListener) => cleanupListener());
+    cleanupListenersRef.current = [];
 
     // Remove all layers and sources for each forecast hour
     forecastHours.forEach((hour) => {
@@ -109,6 +113,7 @@ export function usePreloadedRasterLayers(
     loadedSourcesRef.current.clear();
     setIsReady(false);
     setLoadedCount(0);
+    setTotalCount(0);
     setActiveForecastState(null);
     activeForecastRef.current = null;
   }, [getMap, forecastHours]);
@@ -198,8 +203,17 @@ export function usePreloadedRasterLayers(
       }
     };
 
+    let beforeLayer: string | undefined;
+    const candidates = ["rivers-casing", "rivers-line", "lakes-fill", "blm-fill"];
+    for (const candidate of candidates) {
+      if (map.getLayer(candidate)) {
+        beforeLayer = candidate;
+        break;
+      }
+    }
+
     // Create a source and layer for each forecast hour
-    forecastHours.forEach((hour, index) => {
+    forecastHours.forEach((hour) => {
       const tileUrl = buildTileUrl(hour);
       if (!tileUrl) return;
 
@@ -226,7 +240,7 @@ export function usePreloadedRasterLayers(
           "raster-fade-duration": 0,
           "raster-opacity-transition": { duration: 0, delay: 0 },
         },
-      });
+      }, beforeLayer);
 
       // Listen for source load
       const onSourceData = (e: mapboxgl.MapSourceDataEvent) => {
@@ -237,6 +251,7 @@ export function usePreloadedRasterLayers(
       };
 
       map.on("sourcedata", onSourceData);
+      cleanupListenersRef.current.push(() => map.off("sourcedata", onSourceData));
 
       // Also check immediately in case already cached
       if (map.isSourceLoaded(sourceId)) {

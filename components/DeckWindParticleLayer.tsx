@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import { PathLayer } from '@deck.gl/layers';
+import type mapboxgl from 'mapbox-gl';
 import type { MapRef } from 'react-map-gl';
 import type { WindData } from '@/hooks/useWindData';
 
@@ -20,6 +21,25 @@ interface ViewBounds {
   east: number;
   south: number;
   north: number;
+}
+
+function resolveSpawnBounds(dataBounds: ViewBounds, currentViewBounds: ViewBounds | null, currentZoom: number): ViewBounds {
+  if (!currentViewBounds || currentZoom <= 4) {
+    return dataBounds;
+  }
+
+  const candidate = {
+    west: Math.max(dataBounds.west, currentViewBounds.west),
+    east: Math.min(dataBounds.east, currentViewBounds.east),
+    south: Math.max(dataBounds.south, currentViewBounds.south),
+    north: Math.min(dataBounds.north, currentViewBounds.north),
+  };
+
+  if (candidate.west >= candidate.east || candidate.south >= candidate.north) {
+    return dataBounds;
+  }
+
+  return candidate;
 }
 
 interface DeckWindParticleLayerProps {
@@ -67,10 +87,26 @@ export function DeckWindParticleLayer({
   opacity = 0.7,
 }: DeckWindParticleLayerProps) {
   const overlayRef = useRef<MapboxOverlay | null>(null);
+  const attachedMapRef = useRef<mapboxgl.Map | null>(null);
   const particlesRef = useRef<Particle[]>([]);
   const animationFrameRef = useRef<number | null>(null);
   const [viewBounds, setViewBounds] = useState<ViewBounds | null>(null);
   const [zoom, setZoom] = useState(3);
+
+  const removeOverlay = useCallback(() => {
+    if (!overlayRef.current || !attachedMapRef.current) {
+      return;
+    }
+
+    try {
+      attachedMapRef.current.removeControl(overlayRef.current as any);
+    } catch (error) {
+      // Ignore duplicate cleanup and stale map errors during teardown.
+    } finally {
+      overlayRef.current = null;
+      attachedMapRef.current = null;
+    }
+  }, []);
 
   // Calculate particle count based on zoom level - DECREASE as you zoom in
   const getParticleCount = useCallback((currentZoom: number) => {
@@ -112,16 +148,7 @@ export function DeckWindParticleLayer({
     const particleCount = getParticleCount(currentZoom);
     
     // Determine spawn bounds (intersection of view and data bounds, or just data bounds)
-    let spawnBounds = dataBounds;
-    if (currentViewBounds && currentZoom > 4) {
-      // When zoomed in, concentrate particles in visible area
-      spawnBounds = {
-        west: Math.max(dataBounds.west, currentViewBounds.west),
-        east: Math.min(dataBounds.east, currentViewBounds.east),
-        south: Math.max(dataBounds.south, currentViewBounds.south),
-        north: Math.min(dataBounds.north, currentViewBounds.north),
-      };
-    }
+    const spawnBounds = resolveSpawnBounds(dataBounds, currentViewBounds, currentZoom);
 
     const particles: Particle[] = [];
 
@@ -205,15 +232,7 @@ export function DeckWindParticleLayer({
         particle.y < 0 || particle.y >= height
       ) {
         // Respawn within view bounds when zoomed in
-        let spawnBounds = bounds;
-        if (viewBounds && zoom > 4) {
-          spawnBounds = {
-            west: Math.max(bounds.west, viewBounds.west),
-            east: Math.min(bounds.east, viewBounds.east),
-            south: Math.max(bounds.south, viewBounds.south),
-            north: Math.min(bounds.north, viewBounds.north),
-          };
-        }
+        const spawnBounds = resolveSpawnBounds(bounds, viewBounds, zoom);
         
         const lng = spawnBounds.west + Math.random() * (spawnBounds.east - spawnBounds.west);
         const lat = spawnBounds.south + Math.random() * (spawnBounds.north - spawnBounds.south);
@@ -298,6 +317,7 @@ export function DeckWindParticleLayer({
 
     const updateView = () => {
       const bounds = map.getBounds();
+      if (!bounds) return;
       const currentZoom = map.getZoom();
       
       setViewBounds({
@@ -331,22 +351,30 @@ export function DeckWindParticleLayer({
 
   // Animation loop
   useEffect(() => {
-    if (!enabled || !windData || !mapRef.current) return;
+    if (!enabled || !windData || !mapRef.current) {
+      removeOverlay();
+      return;
+    }
 
     const map = mapRef.current.getMap();
-    if (!map) return;
+    if (!map) {
+      removeOverlay();
+      return;
+    }
 
     // Create overlay if it doesn't exist
     if (!overlayRef.current) {
       overlayRef.current = new MapboxOverlay({
-        interleaved: true,
+        interleaved: false,
         layers: [],
       });
       map.addControl(overlayRef.current as any);
+      attachedMapRef.current = map as mapboxgl.Map;
     }
 
     // Initialize particles with current view
     const bounds = map.getBounds();
+    if (!bounds) return;
     const currentZoom = map.getZoom();
     initParticles({
       west: bounds.getWest(),
@@ -380,28 +408,20 @@ export function DeckWindParticleLayer({
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
     };
-  }, [enabled, windData, mapRef, initParticles, updateParticles, createLayers]);
+  }, [enabled, windData, mapRef, initParticles, updateParticles, createLayers, removeOverlay]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (overlayRef.current && mapRef.current) {
-        const map = mapRef.current.getMap();
-        if (map) {
-          try {
-            map.removeControl(overlayRef.current as any);
-          } catch (e) {
-            // Ignore errors during cleanup
-          }
-        }
-      }
+      removeOverlay();
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [mapRef]);
+  }, [mapRef, removeOverlay]);
 
   // Handle enable/disable
   useEffect(() => {

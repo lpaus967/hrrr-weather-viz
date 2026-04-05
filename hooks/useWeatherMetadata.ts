@@ -1,10 +1,8 @@
 /**
  * Weather Metadata Hook
  *
- * Fetches and manages weather pipeline metadata from S3.
+ * Fetches weather metadata from Driftwise S3 bucket.
  * Provides typed access to available variables, timestamps, and tile URLs.
- *
- * Part of TICKET-012: Create Metadata Generation Script
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -97,13 +95,20 @@ export interface UseWeatherMetadataResult {
 }
 
 // =============================================================================
-// Configuration
+// Configuration - Driftwise S3 bucket
 // =============================================================================
 
 const DEFAULT_METADATA_URL =
-  "https://sat-data-container.s3.us-east-1.amazonaws.com/metadata/latest.json";
+  "https://driftwise-weather-data.s3.us-east-1.amazonaws.com/metadata/latest.json";
 
 const REFRESH_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+
+function normalizeForecastHour(forecast: string): string {
+  const trimmedForecast = forecast.trim();
+  return /^\d+$/.test(trimmedForecast)
+    ? trimmedForecast.padStart(2, "0")
+    : trimmedForecast;
+}
 
 // =============================================================================
 // Hook
@@ -170,7 +175,7 @@ export function useWeatherMetadata(
       return metadata.tiles.url_template
         .replace("{variable}", variable)
         .replace("{timestamp}", ts)
-        .replace("{forecast}", forecast);
+        .replace("{forecast}", normalizeForecastHour(forecast));
     },
     [metadata]
   );
@@ -230,7 +235,7 @@ export function buildTileUrl(
   return metadata.tiles.url_template
     .replace("{variable}", variable)
     .replace("{timestamp}", timestamp)
-    .replace("{forecast}", forecast);
+    .replace("{forecast}", normalizeForecastHour(forecast));
 }
 
 /**
@@ -272,7 +277,7 @@ export function getForecastHoursForRun(
   timestamp: string
 ): string[] {
   const run = metadata.available_runs?.find((r) => r.timestamp === timestamp);
-  return run?.forecast_hours ?? [];
+  return (run?.forecast_hours ?? []).map(normalizeForecastHour);
 }
 
 /**
@@ -318,3 +323,5 @@ export function formatRunTimestamp(timestamp: string): string {
 }
 
 export default useWeatherMetadata;
+
+export { normalizeForecastHour };

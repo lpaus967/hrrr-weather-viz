@@ -121,6 +121,17 @@ html, body {
   gap: 8px;
 }
 
+.info-value.stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.info-subvalue {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
 .status-badge {
   font-size: 11px;
   padding: 2px 8px;
@@ -176,6 +187,59 @@ html, body {
 .variable-btn .units {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.4);
+}
+
+.variable-meta {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 400;
+}
+
+.weather-detail-card {
+  margin-top: 14px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+}
+
+.weather-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.slider-group {
+  margin-top: 14px;
+}
+
+.slider-group:first-of-type {
+  margin-top: 12px;
+}
+
+.loading-inline {
+  margin-bottom: 12px;
+}
+
+.status-message {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.status-message.error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
 }
 
 /* Forecast Slider Section */
